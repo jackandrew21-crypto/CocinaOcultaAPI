@@ -7,42 +7,50 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ OBTENER LA CADENA DE CONEXIÓN DESDE VARIABLES DE ENTORNO (Railway)
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
-                      ?? builder.Configuration.GetConnectionString("DefaultConnection");
+// ✅ CONVERTIR RAILWAY DATABASE_URL AL FORMATO DE NPGSQL
+var rawConnectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
+                        ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
+string ConvertToNpgsqlFormat(string url)
+{
+    if (string.IsNullOrEmpty(url)) return url;
+    var uri = new Uri(url);
+    var userInfo = uri.UserInfo.Split(':');
+    return $"Host={uri.Host};Port={uri.Port};Username={userInfo[0]};Password={userInfo[1]};Database={uri.AbsolutePath.TrimStart('/')};SSL Mode=Require;Trust Server Certificate=true;";
+}
+
+var connectionString = ConvertToNpgsqlFormat(rawConnectionString);
+
+// ✅ Configurar EF Core con PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Configuración de CORS
+// ✅ Configurar CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy
-            .AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader();
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
 
-// Configuración de controladores
+// ✅ Configurar controladores
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Configuración de Swagger con autorización por JWT
+// ✅ Configurar Swagger con JWT
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Cocina Oculta API", Version = "v1" });
 
-    var jwtSecurityScheme = new OpenApiSecurityScheme
+    var jwtScheme = new OpenApiSecurityScheme
     {
         BearerFormat = "JWT",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
-        Description = "Ingrese el token JWT como: Bearer {su token}",
+        Description = "Escribe: Bearer {tu token JWT}",
         Reference = new OpenApiReference
         {
             Id = JwtBearerDefaults.AuthenticationScheme,
@@ -50,15 +58,18 @@ builder.Services.AddSwaggerGen(c =>
         }
     };
 
-    c.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
+    c.AddSecurityDefinition(jwtScheme.Reference.Id, jwtScheme);
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
-        { jwtSecurityScheme, Array.Empty<string>() }
+        { jwtScheme, Array.Empty<string>() }
     });
 });
 
-// Configuración del JWT
-var jwtKey = builder.Configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_SECRET") ?? "ESTACLAVESECRETAESDEMOPARADEV123!";
+// ✅ Configurar JWT
+var jwtKey = Environment.GetEnvironmentVariable("JWT_SECRET")
+           ?? builder.Configuration["Jwt:Key"]
+           ?? "ESTACLAVESECRETAESDEMOPARADEV123!";
+
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
@@ -81,21 +92,17 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Middleware de desarrollo
-if (app.Environment.IsDevelopment())
+// ✅ Usar Swagger si está en desarrollo
+if (app.Environment.IsDevelopment() || true) // 👉 Opcional: siempre mostrar Swagger
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Middleware HTTP
+// ✅ Middlewares de seguridad y rutas
 app.UseCors("AllowAll");
-
 app.UseHttpsRedirection();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
