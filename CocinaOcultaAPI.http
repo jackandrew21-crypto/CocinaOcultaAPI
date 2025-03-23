@@ -1,0 +1,6 @@
+@CocinaOcultaAPI_HostAddress = http://localhost:5097
+
+GET {{CocinaOcultaAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
