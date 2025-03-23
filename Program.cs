@@ -7,9 +7,12 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuración de la base de datos PostgreSQL
+// ✅ OBTENER LA CADENA DE CONEXIÓN DESDE VARIABLES DE ENTORNO (Railway)
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
+                      ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 // Configuración de CORS
 builder.Services.AddCors(options =>
@@ -55,7 +58,8 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Configuración del JWT
-var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? "ESTACLAVESECRETAESDEMOPARADEV123!");
+var jwtKey = builder.Configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_SECRET") ?? "ESTACLAVESECRETAESDEMOPARADEV123!";
+var key = Encoding.ASCII.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -95,4 +99,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
