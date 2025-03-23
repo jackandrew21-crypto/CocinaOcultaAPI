@@ -7,7 +7,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ CONVERTIR RAILWAY DATABASE_URL AL FORMATO DE NPGSQL
+// ✅ CONVERTIR RAILWAY/RENDER DATABASE_URL AL FORMATO DE NPGSQL
 var rawConnectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
                         ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -92,12 +92,13 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// ✅ Usar Swagger si está en desarrollo
-if (app.Environment.IsDevelopment() || true) // 👉 Opcional: siempre mostrar Swagger
+// ✅ Mostrar Swagger siempre y establecerlo como página de inicio
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cocina Oculta API v1");
+    c.RoutePrefix = string.Empty; // <- Esto hace que / apunte a Swagger
+});
 
 // ✅ Middlewares de seguridad y rutas
 app.UseCors("AllowAll");
@@ -105,4 +106,5 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
 app.Run();
